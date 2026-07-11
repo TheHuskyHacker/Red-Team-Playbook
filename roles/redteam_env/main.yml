@@ -1,0 +1,26 @@
+---
+# 1. Distro-Agnostic Setup (Combined from BlackArch & PimpMyKali logic)
+- name: Ensure custom workspace architecture exists
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "/root/Workspace/Recon"
+    - "/root/Workspace/Exploits"
+    - "/root/Workspace/OSINT"
+
+- name: Disable power management and screen blanking delays
+  ansible.builtin.command:
+    cmd: xset s off -dpms
+  failed_when: false
+  changed_when: false
+
+# 2. Dynamic OS Routing
+- name: Run Debian-family installations (Kali, Parrot, Ubuntu)
+  ansible.builtin.include_tasks: debian.yml
+  when: ansible_os_family == "Debian"
+
+- name: Run Arch-family installations (BlackArch)
+  ansible.builtin.include_tasks: arch.yml
+  when: ansible_os_family == "Archlinux"
