@@ -15,8 +15,9 @@
   ansible.builtin.apt:
     name:
       - bloodhound
+      - bloodyad
       - amass
-      - ffuf
-      - chisel
-      - proxychains4
+      - certipy-ad
+      - terminator
+      - ligolo-ng
     state: present
