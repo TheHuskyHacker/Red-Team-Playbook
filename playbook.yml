@@ -1,0 +1,6 @@
+---
+- name: Deploy Red Team Workspace and Tooling
+  hosts: all
+  become: true
+  roles:
+    - redteam_env
