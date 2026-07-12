@@ -86,6 +86,9 @@ ansible-playbook -i inventory.ini playbook.yml --limit kali_nodes
 
 # Run tasks step-by-step to monitor execution logs
 ansible-playbook -i inventory.ini playbook.yml --step
+
+# Also perform a full system upgrade before installing (off by default; Arch always -Syu)
+ansible-playbook -i inventory.ini playbook.yml -e system_upgrade=true
 ```
 
 ---
