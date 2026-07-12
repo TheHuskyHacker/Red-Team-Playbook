@@ -25,7 +25,8 @@ redteam-playbook/
     └── redteam_env/
         ├── tasks/
         │   ├── main.yml      # OS detection & dynamic switchboard
-        │   ├── debian.yml    # Kali/Parrot/Ubuntu setup (PimpMyKali features)
+        │   ├── kali.yml      # Kali setup via native apt (PimpMyKali features)
+        │   ├── debian.yml    # Debian/Ubuntu/Parrot setup via pipx + release binaries
         │   └── arch.yml      # Arch/BlackArch setup (BlackArch-install features)
         └── files/
             └── tmux.conf     # Standardized terminal configurations
@@ -37,7 +38,7 @@ redteam-playbook/
 
 *   **Workspace Standard:** Automatically enforces a standardized operation directories framework (`/root/Workspace/{Recon,Exploits,OSINT}`).
 *   **Environment Enhancements:** Disables screen blanking, power-saving lockouts, and sets up custom terminal dotfiles.
-*   **Automated Tool Provisioning:** Deploys a baseline red team toolkit across all platforms (`chisel`, `ligolo-ng`, `ffuf`, `amass`, `certipy`, `evil-winrm`).
+*   **Automated Tool Provisioning:** Deploys a baseline red team toolkit (`ligolo-ng`, `amass`, `certipy`, `bloodyad`, `terminator`) using each platform's native mechanism — apt on Kali, `pipx` plus prebuilt release binaries on generic Debian/Ubuntu, and `pacman` on Arch — so non-Kali hosts get the tools without adding Kali repositories.
 *   **Platform Tuning:** Handles Debian-specific tasks like extracting `rockyou.txt` and updates `pacman` signature keys on Arch-based targets.
 
 ---
@@ -52,6 +53,11 @@ sudo apt update && sudo apt install ansible -y
 
 # Arch Linux/BlackArch
 sudo pacman -S ansible
+```
+
+The playbook uses modules from the `community.general` collection (`pipx` on Debian/Ubuntu, `pacman` on Arch). Install it once:
+```bash
+ansible-galaxy collection install community.general
 ```
 
 ### 2. Configure Your Inventory

@@ -17,9 +17,13 @@
   changed_when: false
 
 # 2. Dynamic OS Routing
-- name: Run Debian-family installations (Kali, Parrot, Ubuntu)
+- name: Run Kali-native installation (apt)
+  ansible.builtin.include_tasks: kali.yml
+  when: ansible_distribution == "Kali"
+
+- name: Run generic Debian/Ubuntu installation (native per-tool)
   ansible.builtin.include_tasks: debian.yml
-  when: ansible_os_family == "Debian"
+  when: ansible_os_family == "Debian" and ansible_distribution != "Kali"
 
 - name: Run Arch-family installations (BlackArch)
   ansible.builtin.include_tasks: arch.yml

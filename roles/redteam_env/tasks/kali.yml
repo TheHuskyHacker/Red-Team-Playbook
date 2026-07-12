@@ -1,0 +1,24 @@
+---
+# Kali-native path: all tooling is available in the Kali apt repositories.
+- name: Update apt cache and upgrade the system
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: safe
+
+- name: Extract Rockyou wordlist natively
+  ansible.builtin.command:
+    cmd: gunzip /usr/share/wordlists/rockyou.txt.gz
+    creates: /usr/share/wordlists/rockyou.txt
+  failed_when: false
+
+- name: Install PimpMyKali essential core tooling
+  ansible.builtin.apt:
+    name:
+      - bloodhound
+      - bloodyad
+      - amass
+      - certipy-ad
+      - terminator
+      - ligolo-ng
+      - bloodhound-cli
+    state: present

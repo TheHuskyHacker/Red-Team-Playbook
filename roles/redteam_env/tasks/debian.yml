@@ -1,24 +1,86 @@
 ---
-- name: Unhash source repositories and update apt cache
-  ansible.builtin.apt:
-    update_cache: true
-    upgrade: safe
-  when: ansible_distribution == "Kali"
+# Generic Debian/Ubuntu path.
+#
+# Kali-repo packages are unavailable here, so the equivalent toolkit is installed
+# via each tool's native method: apt where the package exists, pipx for the Python
+# tools, and prebuilt GitHub release binaries for the Go tools (no Go toolchain).
+#
+# Pinned versions and asset names below are the only things to bump on upgrade;
+# confirm the asset names against the pinned release when changing a version.
 
-- name: Extract Rockyou wordlist natively
-  ansible.builtin.command:
-    cmd: gunzip /usr/share/wordlists/rockyou.txt.gz
-    creates: /usr/share/wordlists/rockyou.txt
-  failed_when: false
+- name: Set pinned tool versions and architecture mappings
+  ansible.builtin.set_fact:
+    ligolo_version: "0.8.2"
+    amass_version: "4.2.0"
+    # GitHub release assets use Go-style arch names (amd64/arm64), not x86_64.
+    go_arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_architecture] | default('amd64') }}"
+    # pipx installs shared, on the global PATH, instead of into ~/.local/bin.
+    pipx_env:
+      PIPX_HOME: /opt/pipx
+      PIPX_BIN_DIR: /usr/local/bin
 
-- name: Install PimpMyKali essential core tooling
+# 1. Base packages available in the standard Debian/Ubuntu repos.
+- name: Install base packages and install prerequisites
   ansible.builtin.apt:
     name:
-      - bloodhound
-      - bloodyad
-      - amass
-      - certipy-ad
       - terminator
-      - ligolo-ng
-      - bloodhound-cli
+      - pipx
+      - curl
+      - unzip
+      - tar
+      - git
     state: present
+    update_cache: true
+
+# 2. Python tools via pipx (installed to /usr/local/bin via pipx_env).
+- name: Install Python-based tooling with pipx
+  community.general.pipx:
+    name: "{{ item }}"
+    state: present
+  environment: "{{ pipx_env }}"
+  loop:
+    - certipy-ad       # certipy
+    - bloodyAD         # bloodyad
+    - bloodhound-ce    # BloodHound CE python ingestor (collector)
+
+# 3. Go tools via prebuilt release binaries -> /usr/local/bin.
+- name: Install ligolo-ng proxy and agent binaries
+  ansible.builtin.unarchive:
+    src: "https://github.com/nicocha30/ligolo-ng/releases/download/v{{ ligolo_version }}/ligolo-ng_{{ item }}_{{ ligolo_version }}_linux_{{ go_arch }}.tar.gz"
+    dest: /usr/local/bin
+    remote_src: true
+    mode: '0755'
+    creates: "/usr/local/bin/{{ item }}"
+  loop:
+    - proxy   # operator side
+    - agent   # deploy to targets
+
+- name: Download amass release archive
+  ansible.builtin.get_url:
+    url: "https://github.com/owasp-amass/amass/releases/download/v{{ amass_version }}/amass_Linux_{{ go_arch }}.zip"
+    dest: "/tmp/amass_{{ amass_version }}.zip"
+    mode: '0644'
+
+- name: Extract amass into /opt
+  ansible.builtin.unarchive:
+    src: "/tmp/amass_{{ amass_version }}.zip"
+    dest: /opt
+    remote_src: true
+    creates: "/opt/amass_Linux_{{ go_arch }}/amass"
+
+- name: Symlink amass onto the global PATH
+  ansible.builtin.file:
+    src: "/opt/amass_Linux_{{ go_arch }}/amass"
+    dest: /usr/local/bin/amass
+    state: link
+
+# 4. Optional heavyweight: BloodHound CE GUI (docker-based). Off by default so
+#    throwaway VMs stay lightweight. Enable with -e bloodhound_gui=true.
+- name: Install bloodhound-cli (BloodHound CE installer)
+  ansible.builtin.unarchive:
+    src: "https://github.com/SpecterOps/bloodhound-cli/releases/latest/download/bloodhound-cli-linux-{{ go_arch }}.tar.gz"
+    dest: /usr/local/bin
+    remote_src: true
+    mode: '0755'
+    creates: /usr/local/bin/bloodhound-cli
+  when: bloodhound_gui | default(false) | bool
