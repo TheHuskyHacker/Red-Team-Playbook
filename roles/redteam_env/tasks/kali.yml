@@ -22,3 +22,112 @@
       - ligolo-ng
       - bloodhound-cli
     state: present
+
+# Operator toolkit. Everything here is packaged in the Kali repos (verified via
+# apt-cache), so apt is preferred over git-cloning source. Two substitutions:
+#   webshells -> provides pentestmonkey php-reverse-shell.php (/usr/share/webshells)
+#   peass     -> Kali's package for PEASS-ng (linpeas/winpeas, /usr/share/peass)
+- name: Install operator toolkit available in Kali apt
+  ansible.builtin.apt:
+    name:
+      - wpscan
+      - gobuster
+      - powersploit
+      - evil-winrm
+      - joomscan
+      - smtp-user-enum
+      - chisel
+      - nishang
+      - enum4linux-ng
+      - seclists
+      - sqlmap
+      - webshells
+      - peass
+    state: present
+
+# Tools NOT packaged in Kali apt -> shallow-clone latest into the Exploits workspace.
+- name: Clone privesc/exploitation tools not in apt
+  ansible.builtin.git:
+    repo: "https://github.com/{{ item.repo }}"
+    dest: "/root/Workspace/Exploits/{{ item.name }}"
+    depth: 1
+    update: false
+  loop:
+    - { name: LinEnum, repo: rebootuser/LinEnum }
+    - { name: PrivescCheck, repo: itm4n/PrivescCheck }
+    - { name: SigmaPotato, repo: tylerdotrar/SigmaPotato }
+    - { name: GodPotato, repo: BeichenDream/GodPotato }
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Install kerbrute release binary (not in apt)
+  ansible.builtin.get_url:
+    url: https://github.com/ropnop/kerbrute/releases/download/v1.0.3/kerbrute_linux_amd64
+    dest: /usr/local/bin/kerbrute
+    mode: '0755'
+
+# --- Editors / web proxies available in Kali apt ---
+- name: Install editor and web-proxy tooling (Kali apt)
+  ansible.builtin.apt:
+    name:
+      - burpsuite
+      - caido
+      - neovim
+    state: present
+
+- name: Make 'vim' launch neovim (update-alternatives)
+  community.general.alternatives:
+    name: vim
+    link: /usr/bin/vim
+    path: /usr/bin/nvim
+    priority: 110
+
+# --- VS Code (real Microsoft build; served from Microsoft's apt repo, not Kali's) ---
+- name: Ensure apt keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Add Microsoft VS Code signing key
+  ansible.builtin.get_url:
+    url: https://packages.microsoft.com/keys/microsoft.asc
+    dest: /etc/apt/keyrings/microsoft.asc
+    mode: '0644'
+
+- name: Add Microsoft VS Code apt repository
+  ansible.builtin.deb822_repository:
+    name: vscode
+    types: deb
+    uris: https://packages.microsoft.com/repos/code
+    suites: stable
+    components: main
+    architectures: amd64
+    signed_by: /etc/apt/keyrings/microsoft.asc
+    state: present
+
+- name: Install Visual Studio Code
+  ansible.builtin.apt:
+    name: code
+    state: present
+    update_cache: true
+
+# --- Postman (no apt package and no snap on Kali) ---
+- name: Download Postman tarball
+  ansible.builtin.get_url:
+    url: https://dl.pstmn.io/download/latest/linux_64
+    dest: /tmp/postman-linux-x64.tar.gz
+    mode: '0644'
+
+- name: Extract Postman into /opt
+  ansible.builtin.unarchive:
+    src: /tmp/postman-linux-x64.tar.gz
+    dest: /opt
+    remote_src: true
+    creates: /opt/Postman/Postman
+
+- name: Symlink postman onto the global PATH
+  ansible.builtin.file:
+    src: /opt/Postman/Postman
+    dest: /usr/local/bin/postman
+    state: link
